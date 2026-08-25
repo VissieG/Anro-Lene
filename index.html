@@ -478,7 +478,7 @@
 
 <script>
 (function(){
-  const ENDPOINT = "https://script.google.com/macros/s/AKfycbzZCgZ0V2oTleBfr6-JM1KXRjRw69PtQNF_w-bZpt-lzBOAL08RxtXtNWh5WDeOuCCbOg/exec";
+  const ENDPOINT = "https://script.google.com/macros/s/AKfycbzXvzVEo5P1xcDjjWELlBQrP8zYcgoh-oQ9Bx13olp1ydueQ7bUFSaPVzIby_IZ4rcXQQ/exec";
   const $ = id => document.getElementById(id);
 
   function showError(msg){
@@ -523,20 +523,40 @@
     $('submit').disabled = true;
     $('submit').textContent = "Stuur tans…";
 
-    fetch(ENDPOINT, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }).then(function(){
+    function succeed(){
       const first = payload.name.split(' ')[0];
       $('thanksName').textContent = first ? ("Dankie, " + first + "!") : "Dankie!";
       $('form').style.display = 'none';
       $('thanks').classList.add('show');
-    }).catch(function(){
+    }
+    function fail(msg){
       $('submit').disabled = false;
       $('submit').textContent = "Stuur my versoeke";
-      showError("Kon nie stuur nie. Kyk jou internet en probeer weer.");
+      showError(msg || "Kon nie stuur nie. Kyk jou internet en probeer weer.");
+    }
+
+    // Primary attempt: real CORS request so we can read the server's answer.
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(data){
+      if(data && data.ok) succeed();
+      else fail("Iets het skeefgeloop by ons kant. Probeer asseblief weer.");
+    })
+    .catch(function(){
+      // Fallback: opaque request. Can't read the reply, but the write still lands.
+      fetch(ENDPOINT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }).then(succeed).catch(function(){ fail(); });
     });
   });
 })();
